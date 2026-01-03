@@ -1,21 +1,25 @@
 import java.awt.*;
 import java.awt.event.*;
+import java.io.IOException;
 
 // View in the MVC Model.
 public class VNSCPClient extends Frame {
 
     // private final ChatModel model;
+    private final ClientController chatController;
 
     private Button sendButton;
     private TextArea messageHistory;
     private TextField messageInput;
 
-    public VNSCPClient() {
+    public VNSCPClient(ClientController controller) {
         super("VNSCP Client");
 
         // set up UI
         // this.model = model;
         // this.model.addObserver(this);
+
+        this.chatController = controller;
 
         setLayout(new BorderLayout(8,5));
 
@@ -31,7 +35,10 @@ public class VNSCPClient extends Frame {
 
         add(inputPanel, BorderLayout.SOUTH);
 
-        // sendButton.addActionListener(_ -> sendMessage());
+        sendButton.addActionListener(_ -> {
+            chatController.sendMessage(messageInput.getText());
+            messageInput.setText("");
+        });
 
         setSize(800, 600);
         setVisible(true);
@@ -46,6 +53,15 @@ public class VNSCPClient extends Frame {
     }
 
     public static void main() {
-        VNSCPClient client = new VNSCPClient();
+        ClientController controller = new ClientController();
+        VNSCPClient client = new VNSCPClient(controller);
+        controller.setView(client);
+        try {
+            controller.connectCommand("vns.lxd-vs.uni-ulm.de", 8122);
+            controller.login("test" + String.valueOf(((int)(Math.random()*100)))); //TODO custom username
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+
     }
 }
