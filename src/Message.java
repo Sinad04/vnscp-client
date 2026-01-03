@@ -1,0 +1,1 @@
+public record Message(String sender, String content, int id, String timestamp) { }
