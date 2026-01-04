@@ -1,3 +1,5 @@
+
 public interface ModelObserver {
-    public void onMessageAdded(Message newMessage);
+    void onMessageAdded(Message newMessage);
+    void onUserEvent(String[] userNames);
 }

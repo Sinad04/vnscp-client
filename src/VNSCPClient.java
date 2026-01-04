@@ -2,6 +2,7 @@
 import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 // View in the MVC Model.
 public class VNSCPClient extends Frame implements ModelObserver {
@@ -12,6 +13,7 @@ public class VNSCPClient extends Frame implements ModelObserver {
     private Label statusLabel;
     private Button sendButton;
     private TextArea messageHistory;
+    private List userList;
     private TextField messageInput;
 
     public VNSCPClient(ClientController controller, ClientModel model) {
@@ -25,10 +27,12 @@ public class VNSCPClient extends Frame implements ModelObserver {
         setLayout(new BorderLayout(8,5));
 
         sendButton = new Button("Send Message");
-        messageHistory = new TextArea();
+        messageHistory = new TextArea(null, 20, 20, TextArea.SCROLLBARS_VERTICAL_ONLY);
         messageHistory.setEditable(false);
         messageInput = new TextField();
         statusLabel = new Label("Welcome to VNSCP Chat.");
+        userList = new List(10);
+
 
         setSize(800, 600);
 
@@ -78,6 +82,7 @@ public class VNSCPClient extends Frame implements ModelObserver {
         add(messageHistory, BorderLayout.CENTER);
         add(inputPanel, BorderLayout.SOUTH);
         add(statusLabel, BorderLayout.NORTH);
+        add(userList, BorderLayout.EAST);
 
         sendButton.addActionListener(_ -> {
             controller.sendMessage(messageInput.getText());
@@ -103,6 +108,14 @@ public class VNSCPClient extends Frame implements ModelObserver {
         });
     }
 
+    @Override
+    public void onUserEvent(String[] users) {
+        userList.removeAll();
+        for (String user : users) {
+            userList.add(user);
+        }
+    }
+
     public static void main() {
 
         ClientModel model = new ClientModel();
@@ -116,7 +129,6 @@ public class VNSCPClient extends Frame implements ModelObserver {
         }
         VNSCPClient client = new VNSCPClient(controller, model);
         controller.setView(client);
-
 
     }
 }

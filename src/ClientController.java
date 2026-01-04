@@ -79,6 +79,29 @@ public class ClientController {
         });
     }
 
+    public void getOnlineUsers() {
+        senderExec.submit(() -> {
+                    try {
+                        //** DEBUG **
+                        System.out.println("fetching users");
+
+                        cmdWriter.print("PING VNSCP/1.0");
+                        cmdWriter.print("\r\n");
+                        cmdWriter.print("\r\n");
+
+                        cmdWriter.flush();
+
+                        HashMap<String, String> response = parseServerResponse(cmdReader);
+
+                        String[] users = response.get("Usernames").trim().split(",");
+                        model.updateUsers(users);
+
+                    } catch (IOException ioe) {
+                        ioe.printStackTrace();
+                }
+        });
+    }
+
     // Submits the task to the sender thread pool of sending the given String as a message to the server.
     // Input validation regarding the message content is the responsibility of the View.
     public void sendMessage(String msgContent) {
@@ -131,13 +154,8 @@ public class ClientController {
     public void pingServerPeriodically() {
         while (!Thread.currentThread().isInterrupted()) {
             try {
-                Thread.sleep(15000);
-                senderExec.submit (() -> {
-                    cmdWriter.write("PING VNSCP/1.0");
-                    cmdWriter.write("\r\n");
-                    cmdWriter.write("\r\n");
-                    System.out.println("pinging THE server");
-                });
+                Thread.sleep(60000);
+                senderExec.submit(this::getOnlineUsers);
             } catch (InterruptedException ie) {
                 ie.printStackTrace();
             }
@@ -161,10 +179,12 @@ public class ClientController {
                             model.addMessage(message);
                             break;
                         case "EVENT":
+                            String desc = response.get("Description");
                             System.out.println("DEBUG listener: enter EVENT switch case");
-                            Message alert = new Message("SYSTEM", response.get("Description"),
+                            Message alert = new Message("SYSTEM", desc,
                                     Integer.parseInt(response.get("Id")), response.get("Date"));
                             model.addMessage(alert);
+                            getOnlineUsers();
                             break;
                         default:
 
