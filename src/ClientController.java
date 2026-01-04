@@ -155,12 +155,17 @@ public class ClientController {
                 if ((status = response.get("STATUS")) != null) {
                     switch (status) {
                         case "MESSAGE":
-                            System.out.println("DEBUG listener: enter message switch case");
+                            System.out.println("DEBUG listener: enter MESSAGE switch case");
                             Message message = new Message(response.get("Username"), response.get("Text"),
                                     Integer.parseInt(response.get("Id")), response.get("Date"));
                             model.addMessage(message);
+                            break;
                         case "EVENT":
-
+                            System.out.println("DEBUG listener: enter EVENT switch case");
+                            Message alert = new Message("SYSTEM", response.get("Description"),
+                                    Integer.parseInt(response.get("Id")), response.get("Date"));
+                            model.addMessage(alert);
+                            break;
                         default:
 
                     }
