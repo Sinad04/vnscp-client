@@ -20,6 +20,7 @@ public class ClientController {
 
     private final ExecutorService senderExec = Executors.newSingleThreadExecutor();
     private Thread listenerThread;
+    private Thread pingThread;
 
     // Since VNSCP is an ASCII-encoded,
     // text-based protocol we shall use Writers and Readers.
@@ -33,7 +34,7 @@ public class ClientController {
         InputStream pubsubin = s.getInputStream();
         pubsubReader = new BufferedReader(new InputStreamReader(pubsubin));
 
-        listenerThread = new Thread(this::listen);
+        listenerThread = new Thread(this::listenForMessages);
         listenerThread.start();
     }
 
@@ -46,6 +47,9 @@ public class ClientController {
         BufferedReader cmdbr = new BufferedReader(new InputStreamReader(cmdin));
         cmdWriter = cmdpw;
         cmdReader = cmdbr;
+
+        pingThread = new Thread(this::pingServerPeriodically);
+        pingThread.start();
     }
 
     // Given a username attempt to log in with this username.
@@ -122,9 +126,27 @@ public class ClientController {
         return responseHeaders;
     }
 
+    // Intended for the ping thread which shall submit a task
+    // to ping the server periodically to the send Executor every 15 seconds.
+    public void pingServerPeriodically() {
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                Thread.sleep(15000);
+                senderExec.submit (() -> {
+                    cmdWriter.write("PING VNSCP/1.0");
+                    cmdWriter.write("\r\n");
+                    cmdWriter.write("\r\n");
+                    System.out.println("pinging THE server");
+                });
+            } catch (InterruptedException ie) {
+                ie.printStackTrace();
+            }
+        }
+    }
+
     // Let's take a listen 👂
-    public void listen() {
-        while (!Thread.interrupted()) {
+    public void listenForMessages() {
+        while (!Thread.currentThread().isInterrupted()) {
             try {
                 System.out.println("Hello listener thread");
                 HashMap <String, String> response = parseServerResponse(pubsubReader);
