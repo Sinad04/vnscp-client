@@ -16,13 +16,26 @@ public class ClientController {
 
     // private final ChatModel model;
     private VNSCPClient view;
+    private ClientModel model;
 
     private final ExecutorService senderExec = Executors.newSingleThreadExecutor();
+    private Thread listenerThread;
 
     // Since VNSCP is an ASCII-encoded,
     // text-based protocol we shall use Writers and Readers.
     private PrintWriter cmdWriter;
     private BufferedReader cmdReader;
+    private BufferedReader pubsubReader;
+
+    // Attempt to set up the publish/subscribe channel TCP connection with the VNSCP Server.
+    public void connectPubSub(String host, int port) throws IOException {
+        Socket s = new Socket(host, port);
+        InputStream pubsubin = s.getInputStream();
+        pubsubReader = new BufferedReader(new InputStreamReader(pubsubin));
+
+        listenerThread = new Thread(this::listen);
+        listenerThread.start();
+    }
 
     // Attempt to set up the command channel TCP connection with the VNSCP Server.
     public void connectCommand(String host, int port) throws IOException {
@@ -31,8 +44,6 @@ public class ClientController {
         PrintWriter cmdpw = new PrintWriter(cmdout);
         InputStream cmdin = s.getInputStream();
         BufferedReader cmdbr = new BufferedReader(new InputStreamReader(cmdin));
-        //** DEBUG **
-        System.out.println("Connected to host.");
         cmdWriter = cmdpw;
         cmdReader = cmdbr;
     }
@@ -54,24 +65,9 @@ public class ClientController {
 
                         cmdWriter.flush();
 
-                        //** DEBUG **
+                        HashMap<String, String> response = parseServerResponse(cmdReader);
 
-                        String responseStatus = cmdReader.readLine();
-                        HashMap<String, String> responseHeaders = new HashMap<>();
-                        String line;
-                        String[] header;
-
-                        // Parse all headers and store them in the HashMap responseHeaders.
-                        // HashMap is convenient here because the Client MUST NOT assume that these headers are in any pre-defined order.
-                        while (!((line = cmdReader.readLine()).isEmpty()))
-                        {
-                            header = line.replaceAll("\\s", "").split(":");
-                            responseHeaders.put(header[0], header[1]);
-                        };
-
-                        if (responseStatus != null && responseStatus.contains("ERROR")) {
-                            handleError(responseHeaders.get("Reason"));
-                        }
+                        //TODO handle errors
 
         } catch (IOException ioe) {
                         ioe.printStackTrace();
@@ -96,29 +92,10 @@ public class ClientController {
 
                 cmdWriter.flush();
 
-                String responseStatus = cmdReader.readLine();
-                HashMap<String, String> responseHeaders = new HashMap<>();
-                String line;
-                String[] header;
+                HashMap<String, String> response = parseServerResponse(cmdReader);
 
-                // Parse all headers and store them in the HashMap responseHeaders.
-                // HashMap is convenient here because the Client MUST NOT assume that these headers are in any pre-defined order.
-                while (!((line = cmdReader.readLine()).isEmpty()))
-                {
-                    header = line.replaceAll("\\s", "").split(":");
-                    responseHeaders.put(header[0], header[1]);
-                };
+                //TODO handle errors
 
-                if (responseStatus != null && responseStatus.startsWith("EXPIRED")) {
-                    // This means the client has timed out but is still connected.
-                    handleTimeout();
-                }
-                else if (responseStatus != null && responseStatus.startsWith("ERROR")) {
-                    handleError(responseHeaders.get("Reason"));
-                }
-                else {
-
-                }
             } catch (IOException ioe) {
                 ioe.printStackTrace();
                 handleError(""); // "": Handle it in a very general way.
@@ -126,7 +103,54 @@ public class ClientController {
         });
     }
 
+    private HashMap<String, String> parseServerResponse(BufferedReader reader) throws IOException {
+        String responseStatus = reader.readLine();
+        responseStatus = responseStatus.split(" ")[1];
+        HashMap<String, String> responseHeaders = new HashMap<>();
+        String line;
+        String[] header;
+
+        responseHeaders.put("STATUS", responseStatus);
+
+        // Parse all headers and store them in the HashMap responseHeaders.
+        // HashMap is convenient here because the Client MUST NOT assume that these headers are in any pre-defined order.
+        while (!((line = reader.readLine()).isEmpty()))
+        {
+            header = line.split(":");
+            responseHeaders.put(header[0].trim(), header[1].trim());
+        };
+        return responseHeaders;
+    }
+
+    // Let's take a listen 👂
+    public void listen() {
+        while (!Thread.interrupted()) {
+            try {
+                System.out.println("Hello listener thread");
+                HashMap <String, String> response = parseServerResponse(pubsubReader);
+                System.out.println("DEBUG listener: " + response.get("STATUS"));
+                String status;
+                if ((status = response.get("STATUS")) != null) {
+                    switch (status) {
+                        case "MESSAGE":
+                            System.out.println("DEBUG listener: enter message switch case");
+                            Message message = new Message(response.get("Username"), response.get("Text"),
+                                    Integer.parseInt(response.get("Id")), response.get("Date"));
+                            model.addMessage(message);
+                        case "EVENT":
+
+                        default:
+
+                    }
+                }
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
+            }
+        }
+    }
+
     public void setView(VNSCPClient view) {this.view = view;}
+    public void setModel(ClientModel model) {this.model = model;}
 
     private void handleError(String response) {
         System.out.println("Handle error");
