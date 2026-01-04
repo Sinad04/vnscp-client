@@ -1,3 +1,4 @@
+
 import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
@@ -6,21 +7,19 @@ import java.io.IOException;
 public class VNSCPClient extends Frame implements ModelObserver {
 
     private final ClientModel model;
-    private final ClientController chatController;
+    private final ClientController controller;
 
+    private Label statusLabel;
     private Button sendButton;
     private TextArea messageHistory;
     private TextField messageInput;
-
-    private Thread listenerThread;
 
     public VNSCPClient(ClientController controller, ClientModel model) {
         super("VNSCP Client");
 
         this.model = model;
         this.model.addObserver(this);
-
-        this.chatController = controller;
+        this.controller = controller;
 
         // set up UI
         setLayout(new BorderLayout(8,5));
@@ -29,22 +28,9 @@ public class VNSCPClient extends Frame implements ModelObserver {
         messageHistory = new TextArea();
         messageHistory.setEditable(false);
         messageInput = new TextField();
-
-
-        Panel inputPanel = new Panel(new BorderLayout());
-        inputPanel.add(messageInput, BorderLayout.CENTER);
-        inputPanel.add(sendButton, BorderLayout.EAST);
-
-        add(messageHistory, BorderLayout.CENTER);
-        add(inputPanel, BorderLayout.SOUTH);
-
-        sendButton.addActionListener(_ -> {
-            chatController.sendMessage(messageInput.getText());
-            messageInput.setText("");
-        });
+        statusLabel = new Label("Welcome to VNSCP Chat.");
 
         setSize(800, 600);
-        setVisible(true);
 
         addWindowListener(new WindowAdapter() {
             @Override
@@ -52,6 +38,59 @@ public class VNSCPClient extends Frame implements ModelObserver {
                 // cleanUpBeforeExit(); TODO
                 System.exit(0);
             }
+        });
+
+        showLoginDialog();
+    }
+
+    private void showLoginDialog() {
+        Dialog loginDialog = new Dialog(this, "Login", true);
+
+        loginDialog.setLayout(new BorderLayout());
+
+        TextField usernameField = new TextField(30);
+        Button confirmButton = new Button("Confirm");
+
+        loginDialog.add(usernameField, BorderLayout.CENTER);
+        loginDialog.add(confirmButton, BorderLayout.EAST);
+        System.out.println("Login dialog made");
+        confirmButton.addActionListener(_ -> {
+            loginDialog.dispose();
+            String username = usernameField.getText();
+            // TODO validate input
+            controller.login(username);
+            showChatUI();
+        });
+
+        System.out.println("before show");
+        loginDialog.pack();
+        loginDialog.setVisible(true);
+        System.out.println("after show");
+    }
+
+
+    private void showChatUI() {
+
+        Panel inputPanel = new Panel(new BorderLayout());
+        inputPanel.add(messageInput, BorderLayout.CENTER);
+        inputPanel.add(sendButton, BorderLayout.EAST);
+
+        add(messageHistory, BorderLayout.CENTER);
+        add(inputPanel, BorderLayout.SOUTH);
+        add(statusLabel, BorderLayout.NORTH);
+
+        sendButton.addActionListener(_ -> {
+            controller.sendMessage(messageInput.getText());
+            messageInput.setText("");
+        });
+
+        setVisible(true);
+    }
+
+    public void setStatus(String text, boolean urgent) {
+        EventQueue.invokeLater(() -> {
+            statusLabel.setText(text);
+            statusLabel.setBackground(urgent ? Color.PINK : null);
         });
     }
 
@@ -65,18 +104,19 @@ public class VNSCPClient extends Frame implements ModelObserver {
     }
 
     public static void main() {
-        ClientController controller = new ClientController();
+
         ClientModel model = new ClientModel();
-        VNSCPClient client = new VNSCPClient(controller, model);
-        controller.setView(client);
+        ClientController controller = new ClientController();
         controller.setModel(model);
         try {
             controller.connectCommand("vns.lxd-vs.uni-ulm.de", 8122);
             controller.connectPubSub("vns.lxd-vs.uni-ulm.de", 8123);
-            controller.login("test" + String.valueOf(((int)(Math.random()*100)))); //TODO custom username
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }
+        VNSCPClient client = new VNSCPClient(controller, model);
+        controller.setView(client);
+
 
     }
 }
