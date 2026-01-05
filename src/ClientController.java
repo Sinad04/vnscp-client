@@ -1,11 +1,11 @@
 import java.io.*;
 import java.net.Socket;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**************************************************************
  * The Controller of the MVC Architecture.
@@ -14,7 +14,6 @@ import java.util.concurrent.Executors;
 
 public class ClientController {
 
-    // private final ChatModel model;
     private VNSCPClient view;
     private ClientModel model;
 
@@ -54,28 +53,42 @@ public class ClientController {
 
     // Given a username attempt to log in with this username.
     // Input validation regarding the username is the responsibility of the View.
-    public void login(String username) {
-        senderExec.submit(() -> {
-                    try {
-                        //** DEBUG **
-                        System.out.println("Logging in as: " + username);
+    public Future<Boolean> login(String username) {
+        return senderExec.submit(new Callable<Boolean>() {
+            @Override
+            public Boolean call() {
+                try {
 
-                        cmdWriter.print("LOGIN VNSCP/1.0");
-                        cmdWriter.print("\r\n");
-                        cmdWriter.print("Username: ");
-                        cmdWriter.print(username);
-                        cmdWriter.print("\r\n");
-                        cmdWriter.print("\r\n");
+                    cmdWriter.print("LOGIN VNSCP/1.0");
+                    cmdWriter.print("\r\n");
+                    cmdWriter.print("Username: ");
+                    cmdWriter.print(username);
+                    cmdWriter.print("\r\n");
+                    cmdWriter.print("\r\n");
 
-                        cmdWriter.flush();
+                    cmdWriter.flush();
 
-                        HashMap<String, String> response = parseServerResponse(cmdReader);
+                    HashMap<String, String> response = parseServerResponse(cmdReader);
 
-                        //TODO handle errors
+                    String status = response.get("STATUS");
 
-        } catch (IOException ioe) {
-                        ioe.printStackTrace();
+                    switch (status) {
+                        case "LOGGEDIN":
+                            return true;
+                        case "ERROR":
+                            System.out.println("Handle error case: " + response.get("Reason"));
+                            handleError(response.get("Reason"));
+                            break;
+                        default:
+                            handleError("An unknown error occurred.");
+                            break;
+
                     }
+                } catch (IOException ioe) {
+                    ioe.printStackTrace();
+                }
+                return false;
+            }
         });
     }
 
@@ -123,7 +136,7 @@ public class ClientController {
 
                 String status = response.get("STATUS");
                 switch (status) {
-                    case "SENT":
+                    case "SENT": break;
                     case "EXPIRED": handleTimeout(); break;
                     case "ERROR": handleError(response.get("Reason")); break;
                     default:
@@ -206,8 +219,6 @@ public class ClientController {
     public void setModel(ClientModel model) {this.model = model;}
 
     private void handleError(String response) {
-        System.out.println("Handle error");
-        System.out.println(response);
         view.setStatus("An error occurred: " + response, true);
     }
 
