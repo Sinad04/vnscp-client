@@ -133,10 +133,12 @@ public class VNSCPClient extends Frame implements ModelObserver {
 
     @Override
     public void onUserEvent(String[] users) {
-        userList.removeAll();
-        for (String user : users) {
-            userList.add(user);
-        }
+        EventQueue.invokeLater(() -> {
+            userList.removeAll();
+            for (String user : users) {
+                userList.add(user);
+            }
+        });
     }
 
     public static void main() {
