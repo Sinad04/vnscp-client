@@ -121,7 +121,13 @@ public class ClientController {
 
                 HashMap<String, String> response = parseServerResponse(cmdReader);
 
-                //TODO handle errors
+                String status = response.get("STATUS");
+                switch (status) {
+                    case "SENT":
+                    case "EXPIRED": handleTimeout(); break;
+                    case "ERROR": handleError(response.get("Reason")); break;
+                    default:
+                }
 
             } catch (IOException ioe) {
                 ioe.printStackTrace();
@@ -201,7 +207,9 @@ public class ClientController {
 
     private void handleError(String response) {
         System.out.println("Handle error");
-        System.out.println(response);} //TODO
+        System.out.println(response);
+        view.setStatus("An error occurred: " + response, true);
+    }
 
     private void handleTimeout() {System.out.println("Handle timeout");}; //TODO
 }
