@@ -41,12 +41,19 @@ public class VNSCPClient extends Frame implements ModelObserver {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                // cleanUpBeforeExit(); TODO
+                cleanUpBeforeExit();
                 System.exit(0);
             }
         });
 
         controller.setView(this);
+
+        try {
+            controller.connectCommand("vns.lxd-vs.uni-ulm.de", 8122);
+        } catch (IOException ioe) {
+
+        }
+
         showLoginDialog();
     }
 
@@ -73,6 +80,7 @@ public class VNSCPClient extends Frame implements ModelObserver {
                 try {
                     if (controller.login(username).get(6, TimeUnit.SECONDS)) {
                         loginDialog.dispose();
+
                         showChatUI();
                     }
                 } catch (TimeoutException timeoute) {
@@ -88,7 +96,6 @@ public class VNSCPClient extends Frame implements ModelObserver {
         loginDialog.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                // cleanUpBeforeExit(); TODO
                 System.exit(0);
             }
         });
@@ -97,6 +104,9 @@ public class VNSCPClient extends Frame implements ModelObserver {
         loginDialog.setVisible(true);
     }
 
+    private void cleanUpBeforeExit() {
+        controller.byeAndShutDown();
+    }
 
     private void showChatUI() {
         setStatus("Welcome to VNSCP Chat.", false);
@@ -110,7 +120,16 @@ public class VNSCPClient extends Frame implements ModelObserver {
         add(userList, BorderLayout.EAST);
 
         sendButton.addActionListener(_ -> {
-            controller.sendMessage(messageInput.getText());
+            String message = messageInput.getText();
+
+            controller.sendMessage(message);
+            // I'm honestly unsure if the client is required to validate messages, since the server will discard invalid messages with the appropriate reason anyway.
+            // But this is how it would be done if so.
+            // if (message.isEmpty()) {
+            //     setStatus("An Error has occurred: Can't send empty messages!", true);
+            // } else if (message.getBytes().length > 512) {
+            //     setStatus("An Error has occurred: Message too long to send!", true);
+            // }
             messageInput.setText("");
         });
 
@@ -147,13 +166,6 @@ public class VNSCPClient extends Frame implements ModelObserver {
         ClientController controller = new ClientController();
         ClientModel model = new ClientModel();
         controller.setModel(model);
-
-        try {
-            controller.connectCommand("vns.lxd-vs.uni-ulm.de", 8122);
-            controller.connectPubSub("vns.lxd-vs.uni-ulm.de", 8123);
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
-        }
         new VNSCPClient(controller, model);
 
     }
