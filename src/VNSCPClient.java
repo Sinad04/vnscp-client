@@ -69,18 +69,20 @@ public class VNSCPClient extends Frame implements ModelObserver {
         confirmButton.addActionListener(_ -> {
             setStatus("Logging in..", false);
             String username = usernameField.getText();
-            // TODO validate input
-            try {
-                if (controller.login(username).get(6, TimeUnit.SECONDS)) {
-                    loginDialog.dispose();
-                    showChatUI();
+            if (username.matches("^[a-zA-Z0-9]{3,15}$")) {
+                try {
+                    if (controller.login(username).get(6, TimeUnit.SECONDS)) {
+                        loginDialog.dispose();
+                        showChatUI();
+                    }
+                } catch (TimeoutException timeoute) {
+                    this.setStatus("The login attempt has timed out. Please try again.", true);
+                } catch (Exception e) {
+                    this.setStatus("An unknown error has occurred.", true);
                 }
-            } catch (TimeoutException timeoute) {
-                this.setStatus("The login attempt has timed out. Please try again.", true);
-            } catch (Exception e) {
-                this.setStatus("An unknown error has occurred.", true);
+            } else {
+                setStatus("Username must be 3-15 characters long and only contain a-z, A-Z, 0-9.", false);
             }
-
         });
 
         loginDialog.addWindowListener(new WindowAdapter() {
@@ -126,7 +128,6 @@ public class VNSCPClient extends Frame implements ModelObserver {
     public void onMessageAdded(Message newMsg) {
         EventQueue.invokeLater(() -> {
            String formatted = String.format("%s: %s\n", newMsg.sender(), newMsg.content());
-           System.out.println("onMessageAdded: " + formatted);
            messageHistory.append(formatted);
         });
     }
